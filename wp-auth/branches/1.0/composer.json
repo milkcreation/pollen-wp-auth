@@ -1,7 +1,7 @@
 {
-  "name": "pollen-solutions/wp-form-user",
-  "description": "Pollen Wordpress User Form Component.",
-  "homepage": "https://www.presstify.com/pollen-solutions/wp-form-user/",
+  "name": "pollen-solutions/wp-auth",
+  "description": "Pollen Wordpress Auth Component.",
+  "homepage": "https://www.presstify.com/pollen-solutions/wp-auth/",
   "keywords": [
     "pollen-solutions",
     "component",
@@ -9,7 +9,7 @@
     "wordpress",
     "authentication"
   ],
-  "time": "2021-02-28",
+  "time": "2021-03-06",
   "license": "MIT",
   "authors": [
     {
@@ -35,12 +35,12 @@
   },
   "autoload": {
     "psr-4": {
-      "Pollen\\WpFormUser\\": "src"
+      "Pollen\\WpAuth\\": "src"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "Pollen\\WpFormUser\\Test\\": "tests"
+      "Pollen\\WpAuth\\Test\\": "tests"
     }
   },
   "suggest": {
