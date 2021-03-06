@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pollen\WpFormUser;
+namespace Pollen\WpAuth;
 
 use Pollen\Form\AddonDriver;
 use Pollen\Form\AddonDriverInterface;
