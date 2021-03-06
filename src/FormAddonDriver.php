@@ -6,7 +6,7 @@ namespace Pollen\WpFormUser;
 
 use Pollen\Form\AddonDriver;
 use Pollen\Form\AddonDriverInterface;
-use Pollen\Form\FieldDriverInterface;
+use Pollen\Form\FormFieldDriverInterface;
 use Pollen\Validation\Validator as v;
 use WP_Error;
 use WP_User;
@@ -45,7 +45,7 @@ class FormAddonDriver extends AddonDriver implements FormAddonDriverInterface
     public function boot(): AddonDriverInterface
     {
         if (!$this->isBooted()) {
-            $this->form()->events()->on('field.booted', function (FieldDriverInterface $field) {
+            $this->form()->events()->on('field.booted', function (FormFieldDriverInterface $field) {
                 if ($field->getAddonOption($this->getAlias(), 'userdata') === 'user_pass') {
                     if (!$field->params()->has('attrs.onpaste')) {
                         $field->params(['attrs.onpaste' => 'off']);
@@ -57,7 +57,7 @@ class FormAddonDriver extends AddonDriver implements FormAddonDriverInterface
             });
 
             $this->form()->events()
-                ->on('field.validated', function (FieldDriverInterface $field) {
+                ->on('field.validated', function (FormFieldDriverInterface $field) {
                     $this->form()->event('addon.user.field.validation', [&$field]);
                 })
                 ->on('handle.validated', function () {
@@ -151,13 +151,11 @@ class FormAddonDriver extends AddonDriver implements FormAddonDriverInterface
     /**
      * @inheritDoc
      */
-    public function parseParams(): UserAddonDriver
+    public function parseParams(): void
     {
         $this->params(['roles' => (array)$this->params('roles', [])]);
 
         $this->user = ($user_id = $this->params('user_id')) ? new WP_User($user_id) : wp_get_current_user();
-
-        return $this;
     }
 
     /**
@@ -177,11 +175,11 @@ class FormAddonDriver extends AddonDriver implements FormAddonDriverInterface
     /**
      * Vérification d'intégrité d'un champ.
      *
-     * @param FieldDriverInterface $field
+     * @param FormFieldDriverInterface $field
      *
      * @return void
      */
-    public function fieldValidation(FieldDriverInterface $field): void
+    public function fieldValidation(FormFieldDriverInterface $field): void
     {
         if ($userdata = $field->getAddonOption($this->getAlias(), 'userdata', false)) {
             if (!in_array($userdata, ['user_login', 'user_email', 'role'])) {
@@ -291,7 +289,7 @@ class FormAddonDriver extends AddonDriver implements FormAddonDriverInterface
     {
         $userdatas = [];
 
-        foreach ($this->form()->fields() as $slug => $field) {
+        foreach ($this->form()->formFields() as $slug => $field) {
             if (!$key = $field->getAddonOption($this->getAlias(), 'userdata', false)) {
                 continue;
             }
@@ -365,7 +363,7 @@ class FormAddonDriver extends AddonDriver implements FormAddonDriverInterface
         } else {
             $this->setUser($result);
 
-            foreach ($this->form()->fields() as $field) {
+            foreach ($this->form()->formFields() as $field) {
                 if ($key = $field->getAddonOption($this->getAlias(), 'userdata', false)) {
                     switch ($key) {
                         case 'meta' :
