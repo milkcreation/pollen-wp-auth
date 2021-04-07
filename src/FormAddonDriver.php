@@ -45,24 +45,33 @@ class FormAddonDriver extends AddonDriver implements FormAddonDriverInterface
     public function boot(): AddonDriverInterface
     {
         if (!$this->isBooted()) {
-            $this->form()->events()->on('field.booted', function (FormFieldDriverInterface $field) {
-                if ($field->getAddonOption($this->getAlias(), 'userdata') === 'user_pass') {
-                    if (!$field->params()->has('attrs.onpaste')) {
-                        $field->params(['attrs.onpaste' => 'off']);
-                    }
-                    if (!$field->params()->has('attrs.autocomplete')) {
-                        $field->params(['attrs.autocomplete' => 'new-password']);
+            $this->form()->events()->on(
+                'field.booted',
+                function (FormFieldDriverInterface $field) {
+                    if ($field->getAddonOption($this->getAlias(), 'userdata') === 'user_pass') {
+                        if (!$field->params()->has('attrs.onpaste')) {
+                            $field->params(['attrs.onpaste' => 'off']);
+                        }
+                        if (!$field->params()->has('attrs.autocomplete')) {
+                            $field->params(['attrs.autocomplete' => 'new-password']);
+                        }
                     }
                 }
-            });
+            );
 
             $this->form()->events()
-                ->on('field.validated', function (FormFieldDriverInterface $field) {
-                    $this->form()->event('addon.user.field.validation', [&$field]);
-                })
-                ->on('handle.validated', function () {
-                    $this->form()->event('addon.user.save');
-                })
+                ->on(
+                    'field.validated',
+                    function (FormFieldDriverInterface $field) {
+                        $this->form()->event('addon.user.field.validation', [&$field]);
+                    }
+                )
+                ->on(
+                    'handle.validated',
+                    function () {
+                        $this->form()->event('addon.user.save');
+                    }
+                )
                 ->on('addon.user.field.validation', [$this, 'fieldValidation'])
                 ->on('addon.user.save', [$this, 'save']);
         }
@@ -87,13 +96,16 @@ class FormAddonDriver extends AddonDriver implements FormAddonDriverInterface
      */
     public function defaultParams(): array
     {
-        return array_merge(parent::defaultParams(), [
-            'user_id'                    => 0,
-            'roles'                      => ['subscriber'],
-            'send_password_change_email' => false,
-            'send_email_change_email'    => false,
-            'auto_auth'                  => false,
-        ]);
+        return array_merge(
+            parent::defaultParams(),
+            [
+                'user_id'                    => 0,
+                'roles'                      => ['subscriber'],
+                'send_password_change_email' => false,
+                'send_email_change_email'    => false,
+                'auto_auth'                  => false,
+            ]
+        );
     }
 
     /**
@@ -184,98 +196,98 @@ class FormAddonDriver extends AddonDriver implements FormAddonDriverInterface
         if ($userdata = $field->getAddonOption($this->getAlias(), 'userdata', false)) {
             if (!in_array($userdata, ['user_login', 'user_email', 'role'])) {
                 return;
-            } else {
-                switch ($userdata) {
-                    // Identifiant de connexion
-                    case 'user_login' :
-                        if (!$this->isProfile() && get_user_by('login', $field->getValue())) {
-                            $field->error(__('Cet identifiant est déjà utilisé par un autre utilisateur.', 'tify'));
+            }
+            switch ($userdata) {
+                // Identifiant de connexion
+                case 'user_login' :
+                    if (!$this->isProfile() && get_user_by('login', $field->getValue())) {
+                        $field->error(__('Cet identifiant est déjà utilisé par un autre utilisateur.', 'tify'));
+                    }
+                    if (is_multisite()) {
+                        // Lettres et/ou chiffres uniquement
+                        $user_name = $field->getValue();
+                        $orig_username = $user_name;
+                        $user_name = preg_replace('/\s+/', '', sanitize_user($user_name, true));
+
+                        if ($user_name != $orig_username || preg_match('/[^a-z0-9]/', $user_name)) {
+                            $field->error(
+                                __(
+                                    'L\'identifiant de connexion ne devrait contenir que des lettres minuscules (a-z)' .
+                                    ' et des chiffres.',
+                                    'tify'
+                                )
+                            );
                         }
-                        if (is_multisite()) {
-                            // Lettres et/ou chiffres uniquement
-                            $user_name = $field->getValue();
-                            $orig_username = $user_name;
-                            $user_name = preg_replace('/\s+/', '', sanitize_user($user_name, true));
 
-                            if ($user_name != $orig_username || preg_match('/[^a-z0-9]/', $user_name)) {
-                                $field->error(
-                                    __('L\'identifiant de connexion ne devrait contenir que des lettres minuscules (a-z)' .
-                                        ' et des chiffres.',
-                                        'tify'
-                                    )
-                                );
-                            }
-
-                            // Identifiant réservés
-                            $illegal_names = get_site_option('illegal_names');
-                            if (!is_array($illegal_names)) {
-                                $illegal_names = ['www', 'web', 'root', 'admin', 'main', 'invite', 'administrator'];
-                                add_site_option('illegal_names', $illegal_names);
-                            }
-
-                            if (in_array($user_name, $illegal_names, true)) {
-                                $field->error(
-                                    __('Désolé, cet identifiant de connexion n\'est pas permis.', 'tify')
-                                );
-                            }
-
-                            // Identifiant réservés personnalisés
-                            $illegal_logins = (array)apply_filters('illegal_user_logins', []);
-                            if (in_array(strtolower($user_name), array_map('strtolower', $illegal_logins))) {
-                                $field->error(
-                                    __('Désolé, cet identifiant de connexion n\'est pas permis.', 'tify')
-                                );
-                            }
-
-                            // Longueur minimale
-                            if (strlen($user_name) < 4) {
-                                $field->error(
-                                    __('L\'identifiant de connexion doit contenir au moins 4 caractères.', 'tify')
-                                );
-                            }
-
-                            // Longueur maximale
-                            if (strlen($user_name) > 60) {
-                                $field->error(
-                                    __(
-                                        'L\'identifiant de connexion ne doit pas contenir plus de 60 caractères.',
-                                        'tify'
-                                    )
-                                );
-                            }
-
-                            // Lettres obligatoire
-                            if (preg_match('/^[0-9]*$/', $user_name)) {
-                                $field->error(
-                                    __('L\'identifiant de connexion doit contenir des lettres.', 'tify')
-                                );
-                            }
+                        // Identifiant réservés
+                        $illegal_names = get_site_option('illegal_names');
+                        if (!is_array($illegal_names)) {
+                            $illegal_names = ['www', 'web', 'root', 'admin', 'main', 'invite', 'administrator'];
+                            add_site_option('illegal_names', $illegal_names);
                         }
-                        break;
 
-                    // Email
-                    case 'user_email' :
-                        $value = $field->getValue();
-
-                        if (!v::notEmpty()->validate($value)) {
-                            $field->error(__('Veuillez saisir une adresse de messagerie.', 'tify'));
-                        } elseif (!v::email()->validate($value)) {
-                            $field->error(__('L\'adresse de messagerie est incorrecte.', 'tify'));
-                        } elseif (
-                            get_user_by('email', $value) &&
-                            (!$this->isProfile() || ($value !== $this->getUser()->user_email))
-                        ) {
-                            $field->error(__('Cet email est déjà utilisé par un autre utilisateur.', 'tify'));
+                        if (in_array($user_name, $illegal_names, true)) {
+                            $field->error(
+                                __('Désolé, cet identifiant de connexion n\'est pas permis.', 'tify')
+                            );
                         }
-                        break;
 
-                    // Rôle
-                    case 'role' :
-                        if (!$this->canRole($field->getValue())) {
-                            $field->error(__('L\'attribution de ce rôle n\'est pas permise.', 'tify'));
+                        // Identifiant réservés personnalisés
+                        $illegal_logins = (array)apply_filters('illegal_user_logins', []);
+                        if (in_array(strtolower($user_name), array_map('strtolower', $illegal_logins))) {
+                            $field->error(
+                                __('Désolé, cet identifiant de connexion n\'est pas permis.', 'tify')
+                            );
                         }
-                        break;
-                }
+
+                        // Longueur minimale
+                        if (strlen($user_name) < 4) {
+                            $field->error(
+                                __('L\'identifiant de connexion doit contenir au moins 4 caractères.', 'tify')
+                            );
+                        }
+
+                        // Longueur maximale
+                        if (strlen($user_name) > 60) {
+                            $field->error(
+                                __(
+                                    'L\'identifiant de connexion ne doit pas contenir plus de 60 caractères.',
+                                    'tify'
+                                )
+                            );
+                        }
+
+                        // Lettres obligatoire
+                        if (preg_match('/^[0-9]*$/', $user_name)) {
+                            $field->error(
+                                __('L\'identifiant de connexion doit contenir des lettres.', 'tify')
+                            );
+                        }
+                    }
+                    break;
+
+                // Email
+                case 'user_email' :
+                    $value = $field->getValue();
+
+                    if (!v::notEmpty()->validate($value)) {
+                        $field->error(__('Veuillez saisir une adresse de messagerie.', 'tify'));
+                    } elseif (!v::email()->validate($value)) {
+                        $field->error(__('L\'adresse de messagerie est incorrecte.', 'tify'));
+                    } elseif (
+                        get_user_by('email', $value) &&
+                        (!$this->isProfile() || ($value !== $this->getUser()->user_email))
+                    ) {
+                        $field->error(__('Cet email est déjà utilisé par un autre utilisateur.', 'tify'));
+                    }
+                    break;
+
+                // Rôle
+                case 'role' :
+                    if (!$this->canRole($field->getValue())) {
+                        $field->error(__('L\'attribution de ce rôle n\'est pas permise.', 'tify'));
+                    }
+                    break;
             }
         }
     }
@@ -320,13 +332,19 @@ class FormAddonDriver extends AddonDriver implements FormAddonDriverInterface
                 unset($userdatas['role']);
             }
 
-            add_filter('send_password_change_email', function () {
-                return $this->params('send_password_change_email', false);
-            });
+            add_filter(
+                'send_password_change_email',
+                function () {
+                    return $this->params('send_password_change_email', false);
+                }
+            );
 
-            add_filter('send_email_change_email', function () {
-                return $this->params('send_email_change_email', false);
-            });
+            add_filter(
+                'send_email_change_email',
+                function () {
+                    return $this->params('send_email_change_email', false);
+                }
+            );
 
             $result = wp_update_user($userdatas);
         } else {
